@@ -1,0 +1,118 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cyberpunk Network Globe</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #030712;
+            color: #00f0ff;
+            font-family: monospace;
+            overflow: hidden;
+        }
+
+        #globeViz {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(3, 7, 18, 0.85);
+            border: 1px solid #00f0ff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,240,255,0.2);
+        }
+
+        h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .stat {
+            margin: 5px 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+            .stat span {
+                color: #ff0055;
+                font-weight: bold;
+            }
+    </style>
+
+    <!-- Updated to explicit HTTPS CDN sources -->
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://unpkg.com/globe.gl"></script>
+</head>
+<body>
+    <div id="hud">
+        <h2>// Network Monitor</h2>
+        <div class="stat">Status: <span id="status" style="color: #ff0055;">CONNECTING...</span></div>
+        <div class="stat">Active Connections: <span id="count">0</span></div>
+        <div class="stat">Last Target: <span id="lastTarget">None</span></div>
+    </div>
+    <div id="globeViz"></div>
+
+    <script>
+        // Initialize WebGL Globe with HTTPS asset fallbacks
+        const world = Globe()
+        (document.getElementById('globeViz'))
+        .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+        .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+        .backgroundColor('#030712')
+        .atmosphereColor('#00f0ff')
+        .atmosphereAltitude(0.2)
+        .arcColor(d => d.color)
+        .arcDashLength(0.4)
+        .arcDashGap(0.2)
+        .arcDashInitialGap(() => Math.random())
+        .arcDashAnimateTime(1500)
+        .arcStroke(1.2);
+
+        const arcsData = [];
+        const maxArcs = 30;
+
+        // Connect specifically to 127.0.0.1
+        const ws = new WebSocket('ws://127.0.0.1:8765');
+
+        ws.onopen = () => {
+        const statusEl = document.getElementById('status');
+        statusEl.innerText = 'LIVE AGENT ACTIVE';
+        statusEl.style.color = '#00ff66';
+        };
+
+        ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        document.getElementById('count').innerText = data.active_count;
+        document.getElementById('lastTarget').innerText = `${data.city}, ${data.country}`;
+
+        const newArc = {
+        startLat: data.src_lat,
+        startLng: data.src_lng,
+        endLat: data.dst_lat,
+        endLng: data.dst_lng,
+        color: ['#00f0ff', '#ff0055'][Math.floor(Math.random() * 2)]
+        };
+
+        arcsData.push(newArc);
+        if (arcsData.length > maxArcs) arcsData.shift();
+
+        world.arcsData(arcsData);
+        };
+
+        ws.onclose = () => {
+        const statusEl = document.getElementById('status');
+        statusEl.innerText = 'OFFLINE';
+        statusEl.style.color = '#ff0055';
+        };
+    </script>
+</body>
+</html>
